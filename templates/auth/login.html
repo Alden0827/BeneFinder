@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ config.APP_NAME }} - Login</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body class="bg-gray-100 h-screen flex items-center justify-center">
+    <div class="max-w-md w-full bg-white rounded-lg shadow-xl overflow-hidden">
+        <div class="bg-blue-600 p-6 text-white text-center">
+            <h2 class="text-2xl font-bold">{{ config.APP_NAME }}</h2>
+            <p class="text-blue-100">Sign in to your account</p>
+        </div>
+        
+        <form class="p-8 space-y-6" method="POST">
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        <div class="p-4 rounded-md {% if category == 'error' %}bg-red-50 text-red-700{% else %}bg-green-50 text-green-700{% endif %}">
+                            {{ message }}
+                        </div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+
+            <div>
+                <label for="username" class="block text-sm font-medium text-gray-700">Username</label>
+                <div class="mt-1 relative rounded-md shadow-sm">
+                    <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                        <i class="fas fa-user text-gray-400"></i>
+                    </div>
+                    <input type="text" name="username" id="username" required 
+                        class="focus:ring-blue-500 focus:border-blue-500 block w-full pl-10 sm:text-sm border-gray-300 rounded-md py-2 border px-3" 
+                        placeholder="Enter your username">
+                </div>
+            </div>
+
+            <div>
+                <label for="password" class="block text-sm font-medium text-gray-700">Password</label>
+                <div class="mt-1 relative rounded-md shadow-sm">
+                    <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                        <i class="fas fa-lock text-gray-400"></i>
+                    </div>
+                    <input type="password" name="password" id="password" required 
+                        class="focus:ring-blue-500 focus:border-blue-500 block w-full pl-10 sm:text-sm border-gray-300 rounded-md py-2 border px-3" 
+                        placeholder="••••••••">
+                </div>
+            </div>
+
+            <div>
+                <label for="captcha" class="block text-sm font-medium text-gray-700">Security Check</label>
+                <div class="mt-1 flex items-center space-x-4">
+                    <img src="{{ url_for('auth.captcha') }}" alt="Captcha" class="rounded border h-10" id="captcha-img">
+                    <button type="button" onclick="refreshCaptcha()" class="text-blue-600 hover:text-blue-800 text-sm">
+                        <i class="fas fa-sync-alt"></i> Refresh
+                    </button>
+                </div>
+                <input type="text" name="captcha" id="captcha" required 
+                    class="mt-2 focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 rounded-md py-2 border px-3" 
+                    placeholder="Enter the code above">
+            </div>
+
+            <div class="flex items-center justify-between">
+                <div class="flex items-center">
+                    <input id="remember" name="remember" type="checkbox" 
+                        class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
+                    <label for="remember" class="ml-2 block text-sm text-gray-900">
+                        Remember me
+                    </label>
+                </div>
+            </div>
+
+            <div>
+                <button type="submit" 
+                    class="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition duration-150">
+                    Sign in
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <script>
+        function refreshCaptcha() {
+            document.getElementById('captcha-img').src = "{{ url_for('auth.captcha') }}?" + Math.random();
+        }
+    </script>
+</body>
+</html>

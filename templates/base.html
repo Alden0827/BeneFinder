@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ config.APP_NAME }}</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        .modal {
+            transition: opacity 0.25s ease;
+        }
+        body.modal-active {
+            overflow-x: hidden;
+            overflow-y: visible !important;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen flex flex-col">
+    <nav class="bg-blue-800 text-white shadow-lg">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between h-16">
+                <div class="flex items-center">
+                    <span class="text-xl font-bold tracking-wider">{{ config.APP_NAME }}</span>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <span class="text-sm bg-blue-700 px-3 py-1 rounded-full">
+                        <i class="fas fa-user-circle mr-1"></i> {{ current_user.firstname }}
+                    </span>
+                    <a href="{{ url_for('auth.logout') }}" class="text-sm hover:text-blue-200 transition">
+                        <i class="fas fa-sign-out-alt"></i> Logout
+                    </a>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <main class="flex-grow container mx-auto px-4 py-8">
+        {% block content %}{% endblock %}
+    </main>
+
+    <footer class="bg-white border-t border-gray-200 py-4 mt-auto">
+        <div class="container mx-auto px-4 text-center text-gray-500 text-sm">
+            &copy; 2025 Pantawid Pamilyang Pilipino Program. For technical assistance, contact: 
+            <a href="mailto:{{ config.DEV_CONTACT }}" class="text-blue-600 hover:underline">{{ config.DEV_CONTACT }}</a>
+        </div>
+    </footer>
+
+    {% block scripts %}{% endblock %}
+</body>
+</html>

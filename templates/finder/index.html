@@ -1,0 +1,249 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="grid grid-cols-1 lg:grid-cols-4 gap-8">
+    <!-- Search Form Column -->
+    <div class="lg:col-span-1">
+        <div class="bg-white rounded-lg shadow-md p-6 border-t-4 border-blue-600">
+            <h3 class="text-lg font-bold text-gray-800 mb-4">
+                <i class="fas fa-search mr-2 text-blue-600"></i>Fuzzy Search
+            </h3>
+            <form id="searchForm" class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">Given Name *</label>
+                    <input type="text" name="fname" id="fname" required
+                        class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">Middle Name</label>
+                    <input type="text" name="mname" id="mname"
+                        class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700">Surname *</label>
+                    <input type="text" name="lname" id="lname" required
+                        class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
+                </div>
+                <div class="flex space-x-2 pt-2">
+                    <button type="submit"
+                        class="flex-1 bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 transition font-medium text-sm">
+                        Search
+                    </button>
+                    <button type="reset"
+                        class="bg-gray-200 text-gray-700 py-2 px-4 rounded-md hover:bg-gray-300 transition font-medium text-sm">
+                        Clear
+                    </button>
+                </div>
+            </form>
+        </div>
+
+        <div class="mt-8 bg-blue-50 rounded-lg p-6 border border-blue-100">
+            <h4 class="text-blue-800 font-bold mb-2"><i class="fas fa-info-circle mr-2"></i>About</h4>
+            <p class="text-sm text-blue-700 leading-relaxed">
+                The Beneficiary Finder uses advanced fuzzy matching to help you locate Pantawid members even with imperfect spelling. 
+                It ranks results by similarity to your input.
+            </p>
+            <hr class="my-4 border-blue-200">
+            <p class="text-xs text-blue-600 font-semibold uppercase">Data as of:</p>
+            <p class="text-sm text-blue-800 font-bold">{{ data_as_of }}</p>
+        </div>
+    </div>
+
+    <!-- Results Column -->
+    <div class="lg:col-span-3">
+        <div class="bg-white rounded-lg shadow-md overflow-hidden">
+            <div class="p-4 bg-gray-50 border-b flex justify-between items-center">
+                <h3 class="font-bold text-gray-700">Search Results</h3>
+                <span id="resultCount" class="text-xs font-semibold bg-gray-200 text-gray-600 px-2 py-1 rounded-full">0 found</span>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">HHID</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">DOB</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Address</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Similarity</th>
+                        </tr>
+                    </thead>
+                    <tbody id="resultsBody" class="bg-white divide-y divide-gray-200">
+                        <tr>
+                            <td colspan="6" class="px-6 py-10 text-center text-gray-400 italic">
+                                Enter search criteria to find beneficiaries...
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Roster Modal -->
+<div id="rosterModal" class="modal opacity-0 pointer-events-none fixed w-full h-full top-0 left-0 flex items-center justify-center z-50">
+    <div class="modal-overlay absolute w-full h-full bg-gray-900 opacity-50"></div>
+    
+    <div class="modal-container bg-white w-11/12 md:max-w-4xl mx-auto rounded shadow-lg z-50 overflow-y-auto">
+        <!-- Add margin if you want see some of main content, and overflow-y-auto for case when modal height is more than screen -->
+        <div class="modal-content py-4 text-left px-6">
+            <!--Title-->
+            <div class="flex justify-between items-center pb-3 border-b">
+                <p class="text-2xl font-bold text-gray-800">Household Roster</p>
+                <div class="modal-close cursor-pointer z-50">
+                    <i class="fas fa-times text-gray-500 hover:text-gray-700"></i>
+                </div>
+            </div>
+
+            <!--Body-->
+            <div class="my-5">
+                <div class="mb-4 bg-gray-50 p-4 rounded-lg flex flex-wrap gap-4">
+                    <div><span class="text-xs text-gray-500 block uppercase">HHID</span> <span id="modal_hhid" class="font-bold"></span></div>
+                    <div><span class="text-xs text-gray-500 block uppercase">CCT Type</span> <span id="modal_prog" class="font-bold"></span></div>
+                    <div><span class="text-xs text-gray-500 block uppercase">Set</span> <span id="modal_set" class="font-bold"></span></div>
+                    <div><span class="text-xs text-gray-500 block uppercase">Status</span> <span id="modal_cs" class="font-bold"></span></div>
+                </div>
+
+                <div class="overflow-x-auto border rounded">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-100">
+                            <tr>
+                                <th class="px-4 py-2 text-left text-xs font-semibold text-gray-600 uppercase">Entry ID</th>
+                                <th class="px-4 py-2 text-left text-xs font-semibold text-gray-600 uppercase">Name</th>
+                                <th class="px-4 py-2 text-left text-xs font-semibold text-gray-600 uppercase">Relation</th>
+                                <th class="px-4 py-2 text-left text-xs font-semibold text-gray-600 uppercase">DOB</th>
+                                <th class="px-4 py-2 text-left text-xs font-semibold text-gray-600 uppercase">Sex</th>
+                                <th class="px-4 py-2 text-left text-xs font-semibold text-gray-600 uppercase">Status</th>
+                            </tr>
+                        </thead>
+                        <tbody id="rosterTableBody" class="bg-white divide-y divide-gray-200 text-sm">
+                            <!-- Roster data will be injected here -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!--Footer-->
+            <div class="flex justify-end pt-2">
+                <button class="modal-close px-4 bg-blue-600 p-2 rounded-lg text-white hover:bg-blue-700 transition">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    $(document).ready(function() {
+        $('#searchForm').on('submit', function(e) {
+            e.preventDefault();
+            const $btn = $(this).find('button[type="submit"]');
+            const originalText = $btn.text();
+            $btn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin mr-2"></i>Searching...');
+
+            $.ajax({
+                url: "{{ url_for('finder.search') }}",
+                method: "POST",
+                data: $(this).serialize(),
+                success: function(data) {
+                    let html = '';
+                    if (data.length === 0) {
+                        html = '<tr><td colspan="6" class="px-6 py-10 text-center text-gray-400">No beneficiaries found matching your criteria.</td></tr>';
+                    } else {
+                        data.forEach(row => {
+                            html += `
+                                <tr class="hover:bg-gray-50 transition cursor-default">
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-blue-600 font-medium font-mono">${row.hh_id}</td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900">
+                                        <button class="view-roster text-blue-600 hover:text-blue-800 hover:underline text-left" 
+                                                data-hhid="${row.hh_id}" 
+                                                data-set="${row.hh_set}" 
+                                                data-prog="${row.prog}" 
+                                                data-cs="${row.client_status}">
+                                            ${row.name}
+                                        </button>
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${row.birthday}</td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${row.address}</td>
+                                    <td class="px-6 py-4 whitespace-nowrap">
+                                        <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
+                                            ${row.client_status}
+                                        </span>
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-bold">${row.similarity}</td>
+                                </tr>
+                            `;
+                        });
+                    }
+                    $('#resultsBody').html(html);
+                    $('#resultCount').text(`${data.length} found`);
+                },
+                error: function() {
+                    alert('Search failed. Please try again or contact support.');
+                },
+                complete: function() {
+                    $btn.prop('disabled', false).text(originalText);
+                }
+            });
+        });
+
+        // Modal Logic
+        $(document).on('click', '.view-roster', function() {
+            const hhid = $(this).data('hhid');
+            const set = $(this).data('set');
+            const prog = $(this).data('prog');
+            const cs = $(this).data('cs');
+
+            $('#modal_hhid').text(hhid);
+            $('#modal_set').text(set);
+            $('#modal_prog').text(prog);
+            $('#modal_cs').text(cs);
+
+            $('#rosterTableBody').html('<tr><td colspan="6" class="p-8 text-center"><i class="fas fa-circle-notch fa-spin text-2xl text-blue-500"></i></td></tr>');
+            toggleModal();
+
+            $.ajax({
+                url: "{{ url_for('finder.roster') }}",
+                method: "POST",
+                data: { hh_id: hhid },
+                success: function(response) {
+                    if (response.success) {
+                        let html = '';
+                        response.roster.forEach(member => {
+                            const isGrantee = member.grantee.toLowerCase() === 'yes';
+                            html += `
+                                <tr class="${isGrantee ? 'bg-blue-50' : ''}">
+                                    <td class="px-4 py-2 font-mono text-xs">${member.entry_id}</td>
+                                    <td class="px-4 py-2 font-medium">${member.name} ${isGrantee ? '<span class="text-[10px] bg-blue-600 text-white px-1 rounded ml-1">GRANTEE</span>' : ''}</td>
+                                    <td class="px-4 py-2 text-gray-600">${member.relation}</td>
+                                    <td class="px-4 py-2 text-gray-600">${member.birthday}</td>
+                                    <td class="px-4 py-2 text-gray-600">${member.sex}</td>
+                                    <td class="px-4 py-2 text-gray-600">${member.status}</td>
+                                </tr>
+                            `;
+                        });
+                        $('#rosterTableBody').html(html);
+                    }
+                }
+            });
+        });
+
+        const overlay = document.querySelector('.modal-overlay')
+        overlay.addEventListener('click', toggleModal)
+
+        var closemodal = document.querySelectorAll('.modal-close')
+        for (var i = 0; i < closemodal.length; i++) {
+            closemodal[i].addEventListener('click', toggleModal)
+        }
+
+        function toggleModal () {
+            const body = document.querySelector('body')
+            const modal = document.querySelector('.modal')
+            modal.classList.toggle('opacity-0')
+            modal.classList.toggle('pointer-events-auto')
+            body.classList.toggle('modal-active')
+        }
+    });
+</script>
+{% endblock %}
