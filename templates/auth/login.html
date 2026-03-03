@@ -3,27 +3,26 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{ config.APP_NAME }} - Login</title>
+    <title>{{ APP_NAME }} - Login</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
 </head>
 <body class="bg-gray-100 h-screen flex items-center justify-center">
     <div class="max-w-md w-full bg-white rounded-lg shadow-xl overflow-hidden">
         <div class="bg-blue-600 p-6 text-white text-center">
-            <h2 class="text-2xl font-bold">{{ config.APP_NAME }}</h2>
+            <h2 class="text-2xl font-bold">{{ APP_NAME }}</h2>
             <p class="text-blue-100">Sign in to your account</p>
         </div>
         
         <form class="p-8 space-y-6" method="POST">
-            {% with messages = get_flashed_messages(with_categories=true) %}
-                {% if messages %}
-                    {% for category, message in messages %}
-                        <div class="p-4 rounded-md {% if category == 'error' %}bg-red-50 text-red-700{% else %}bg-green-50 text-green-700{% endif %}">
-                            {{ message }}
-                        </div>
-                    {% endfor %}
-                {% endif %}
-            {% endwith %}
+            {% csrf_token %}
+            {% if messages %}
+                {% for message in messages %}
+                    <div class="p-4 rounded-md {% if message.tags == 'error' %}bg-red-50 text-red-700{% else %}bg-green-50 text-green-700{% endif %}">
+                        {{ message }}
+                    </div>
+                {% endfor %}
+            {% endif %}
 
             <div>
                 <label for="username" class="block text-sm font-medium text-gray-700">Username</label>
@@ -52,7 +51,7 @@
             <div>
                 <label for="captcha" class="block text-sm font-medium text-gray-700">Security Check</label>
                 <div class="mt-1 flex items-center space-x-4">
-                    <img src="{{ url_for('auth.captcha') }}" alt="Captcha" class="rounded border h-10" id="captcha-img">
+                    <img src="{% url 'captcha' %}" alt="Captcha" class="rounded border h-10" id="captcha-img">
                     <button type="button" onclick="refreshCaptcha()" class="text-blue-600 hover:text-blue-800 text-sm">
                         <i class="fas fa-sync-alt"></i> Refresh
                     </button>
@@ -83,7 +82,7 @@
 
     <script>
         function refreshCaptcha() {
-            document.getElementById('captcha-img').src = "{{ url_for('auth.captcha') }}?" + Math.random();
+            document.getElementById('captcha-img').src = "{% url 'captcha' %}?" + Math.random();
         }
     </script>
 </body>
