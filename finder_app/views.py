@@ -21,58 +21,94 @@ def captcha_view(request):
     image = ImageCaptcha(width=160, height=60)
     captcha_text = generate_captcha_text()
     request.session['captcha'] = captcha_text
+    print('new captcha:', captcha_text)
     data = image.generate(captcha_text)
     return HttpResponse(data.read(), content_type='image/png')
 
 def login_view(request):
+    """
+    Handles user login with CAPTCHA verification, LDAP authentication,
+    and fallback to local database authentication. Supports "Remember Me".
+    """
+
+    print("=== login_view called ===")
+
+    # Step 0: Check if the user is already authenticated
     if request.user.is_authenticated:
+        print(f"User already authenticated: {request.user.username}")
         return redirect('index')
 
+    # Step 1: Only handle POST requests for login attempts
     if request.method == 'POST':
+        print("POST request detected. Processing login form...")
+
+        # Extract login form fields from POST data
         username = request.POST.get('username')
         password = request.POST.get('password')
         captcha_input = request.POST.get('captcha')
         remember = True if request.POST.get('remember') else False
 
-        if captcha_input != request.session.get('captcha'):
+        print(f"Form input -> Username: {username}, Remember: {remember}, Captcha: {captcha_input}")
+
+        # Step 2: Validate CAPTCHA before any authentication
+        stored_captcha = request.session.get('captcha')
+        print(f"Stored CAPTCHA in session: {stored_captcha}")
+        if captcha_input != stored_captcha:
+            print("CAPTCHA mismatch!")
             messages.error(request, 'Incorrect CAPTCHA')
             return render(request, 'auth/login.html')
 
-        # LDAP Authentication
+        # Step 3: Prepare LDAP/External API authentication parameters
         auth_url = settings.AUTH_API_URL
         auth_key = settings.AUTH_API_KEY
         verify_ssl = settings.AUTH_API_VERIFY_SSL
+        print(f"LDAP API URL: {auth_url}, verify_ssl: {verify_ssl}")
 
         try:
-            # 1. Request token
-            token_resp = requests.post(f"{auth_url}/request_token",
-                                     json={'username': username, 'password': password},
-                                     headers={'X-API-Key': auth_key},
-                                     verify=verify_ssl,
-                                     timeout=10)
-            token_data = token_resp.json()
+            # Step 3a: Request an authentication token from LDAP API
+            print("Requesting LDAP token...")
+            token_response = requests.post(
+                f"{auth_url}/request_token",
+                json={'username': username, 'password': password},
+                headers={'X-API-Key': auth_key},
+                verify=verify_ssl,
+                timeout=10
+            )
+            token_data = token_response.json()
+            print(f"LDAP token response: {token_data}")
 
             if token_data.get('success'):
                 token = token_data['token']
-                # 2. Request user info
-                user_info_resp = requests.post(f"{auth_url}/user_info",
-                                             json={'token': token},
-                                             headers={'X-API-Key': auth_key},
-                                             verify=verify_ssl,
-                                             timeout=10)
-                user_info_data = user_info_resp.json()
+                print(f"Token received: {token}")
+
+                # Step 3b: Fetch user information using the token
+                print("Requesting user info from LDAP...")
+                user_info_response = requests.post(
+                    f"{auth_url}/user_info",
+                    json={'token': token},
+                    headers={'X-API-Key': auth_key},
+                    verify=verify_ssl,
+                    timeout=10
+                )
+                user_info_data = user_info_response.json()
+                print(f"LDAP user info response: {user_info_data}")
 
                 if user_info_data.get('success'):
                     api_user = user_info_data['user']
                     sAMAccountName = api_user['sAMAccountName']
+                    print(f"LDAP user found: {sAMAccountName}")
 
+                    # Step 3d: Sync LDAP user with local database
                     try:
                         user = User.objects.get(username=sAMAccountName)
+                        print(f"User exists in local DB: {user.username}. Updating info...")
                         user.firstname = api_user.get('givenName')
                         user.lastname = api_user.get('sn')
                         user.set_password(password)
                         user.save()
+                        print("Local user updated successfully.")
                     except User.DoesNotExist:
+                        print("User not found in local DB. Creating new user...")
                         user = User.objects.create_user(
                             username=sAMAccountName,
                             password=password,
@@ -84,27 +120,39 @@ def login_view(request):
                             group_id=8,
                             status='Active'
                         )
+                        print(f"Local user created: {user.username}")
 
+                    # Step 3e: Log the user in
                     login(request, user)
+                    print(f"User logged in: {user.username}")
                     if not remember:
                         request.session.set_expiry(0)
+                        print("Session set to expire on browser close.")
+
                     return redirect('index')
 
         except Exception as e:
             print(f"LDAP Auth Error: {str(e)}")
+            messages.warning(request, 'LDAP authentication failed, trying local login.')
 
-        # Fallback to local DB auth
+        # Step 4: Fallback to local database authentication
+        print("Attempting local DB authentication...")
         user = authenticate(request, username=username, password=password)
         if user is not None:
             login(request, user)
+            print(f"Local DB authentication successful. User logged in: {user.username}")
             if not remember:
                 request.session.set_expiry(0)
+                print("Session set to expire on browser close.")
             return redirect('index')
 
+        # Step 5: Login failed
+        print("Login failed: invalid username or password.")
         messages.error(request, 'Login failed. Please check your username and password.')
 
+    # Step 6: Render login page for GET requests or failed logins
+    print("Rendering login page...")
     return render(request, 'auth/login.html')
-
 def logout_view(request):
     logout(request)
     return redirect('login')
