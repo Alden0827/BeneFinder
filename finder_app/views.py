@@ -147,16 +147,16 @@ def login_view(request):
             print(f"LDAP Auth Error: {str(e)}")
             messages.warning(request, 'LDAP authentication failed, trying local login.')
 
-        # # Step 4: Fallback to local database authentication
-        # print("Attempting local DB authentication...")
-        # user = authenticate(request, username=username, password=password)
-        # if user is not None:
-        #     login(request, user)
-        #     print(f"Local DB authentication successful. User logged in: {user.username}")
-        #     if not remember:
-        #         request.session.set_expiry(0)
-        #         print("Session set to expire on browser close.")
-        #     return redirect('index')
+        # Step 4: Fallback to local database authentication
+        print("Attempting local DB authentication...")
+        user = authenticate(request, username=username, password=password)
+        if user is not None:
+            login(request, user)
+            print(f"Local DB authentication successful. User logged in: {user.username}")
+            if not remember:
+                request.session.set_expiry(0)
+                print("Session set to expire on browser close.")
+            return redirect('index')
 
         # Step 5: Login failed
         print("Login failed: invalid username or password.")
