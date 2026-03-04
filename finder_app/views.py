@@ -5,7 +5,7 @@ from django.http import HttpResponse, JsonResponse
 from django.conf import settings
 from django.views.decorators.csrf import csrf_exempt
 from django.contrib.auth.decorators import login_required
-from .models import User, Roster, Config
+from .models import User, Config
 from django.db import connection
 from django.db.models.expressions import RawSQL
 import requests
@@ -91,7 +91,7 @@ def login_view(request):
                     timeout=10
                 )
                 user_info_data = user_info_response.json()
-                print(f"LDAP user info response: {user_info_data}")
+                # print(f"LDAP user info response: {user_info_data}")
 
                 if user_info_data.get('success'):
                     api_user = user_info_data['user']
@@ -109,16 +109,28 @@ def login_view(request):
                         print("Local user updated successfully.")
                     except User.DoesNotExist:
                         print("User not found in local DB. Creating new user...")
+                        # user = User.objects.create_user(
+                        #     username=sAMAccountName,
+                        #     password=password,
+                        #     firstname=api_user.get('givenName'),
+                        #     middlename=api_user.get('initials'),
+                        #     lastname=api_user.get('sn'),
+                        #     email=api_user.get('email'),
+                        #     contact=api_user.get('mobile'),
+                        #     group_id=8,
+                        #     status='Active'
+                        # )
+
                         user = User.objects.create_user(
                             username=sAMAccountName,
                             password=password,
-                            firstname=api_user.get('givenName'),
-                            middlename=api_user.get('initials'),
-                            lastname=api_user.get('sn'),
+                            first_name=api_user.get('givenName'),
+                            last_name=api_user.get('sn'),
                             email=api_user.get('email'),
-                            contact=api_user.get('mobile'),
-                            group_id=8,
-                            status='Active'
+                            middle_name=api_user.get('initials'),   # extra field
+                            contact=api_user.get('mobile'),         # extra field
+                            group_id=8,                             # extra field
+                            status='Active'                         # extra field
                         )
                         print(f"Local user created: {user.username}")
 
@@ -135,16 +147,16 @@ def login_view(request):
             print(f"LDAP Auth Error: {str(e)}")
             messages.warning(request, 'LDAP authentication failed, trying local login.')
 
-        # Step 4: Fallback to local database authentication
-        print("Attempting local DB authentication...")
-        user = authenticate(request, username=username, password=password)
-        if user is not None:
-            login(request, user)
-            print(f"Local DB authentication successful. User logged in: {user.username}")
-            if not remember:
-                request.session.set_expiry(0)
-                print("Session set to expire on browser close.")
-            return redirect('index')
+        # # Step 4: Fallback to local database authentication
+        # print("Attempting local DB authentication...")
+        # user = authenticate(request, username=username, password=password)
+        # if user is not None:
+        #     login(request, user)
+        #     print(f"Local DB authentication successful. User logged in: {user.username}")
+        #     if not remember:
+        #         request.session.set_expiry(0)
+        #         print("Session set to expire on browser close.")
+        #     return redirect('index')
 
         # Step 5: Login failed
         print("Login failed: invalid username or password.")
@@ -210,26 +222,51 @@ def search_view(request):
         return JsonResponse(data, safe=False)
     return JsonResponse({'error': 'Method not allowed'}, status=405)
 
+from django.http import JsonResponse
+from django.contrib.auth.decorators import login_required
+from finder_app.utils.pg_conn import get_pg_connection  # centralized connection helper
+
 @login_required
 def roster_view(request):
-    if request.method == 'POST':
-        hh_id = request.POST.get('hh_id')
-        if not hh_id:
-            return JsonResponse({'success': False, 'message': 'HHID is required'})
+    print("👉 roster_view called")
 
-        roster_members = Roster.objects.filter(hh_id=hh_id)
+    if request.method != 'POST':
+        print("❌ Method not allowed")
+        return JsonResponse({'error': 'Method not allowed'}, status=405)
 
-        data = []
-        for member in roster_members:
-            data.append({
-                'entry_id': str(member.entry_id),
-                'name': f"{member.first_name} {member.middle_name} {member.last_name}",
-                'relation': member.relation_to_hh_head,
-                'birthday': str(member.birthday) if member.birthday else '',
-                'sex': member.sex,
-                'status': member.member_status,
-                'grantee': member.grantee
-            })
+    hh_id = request.POST.get('hh_id')
+    if not hh_id:
+        print("⚠ HHID is required")
+        return JsonResponse({'success': False, 'message': 'HHID is required'})
 
+    print(f"📥 Fetching roster members for HHID: {hh_id}")
+
+    try:
+        with get_pg_connection(verbose=True) as conn:
+            with conn.cursor() as cur:
+                sql = """
+                    SELECT entry_id, first_name, middle_name, last_name,
+                           relation_to_hh_head, birthday, sex, member_status, grantee
+                    FROM ds.tbl_roster
+                    WHERE hh_id = %s
+                """
+                cur.execute(sql, (hh_id,))
+                rows = cur.fetchall()
+                print(f"📦 Rows fetched: {len(rows)}")
+
+        data = [{
+            'entry_id': str(r[0]),
+            'name': f"{r[1] or ''} {r[2] or ''} {r[3] or ''}".strip(),
+            'relation': r[4],
+            'birthday': str(r[5]) if r[5] else '',
+            'sex': r[6],
+            'status': r[7],
+            'grantee': r[8]
+        } for r in rows]
+
+        print("🚀 Returning JSON response")
         return JsonResponse({'success': True, 'roster': data})
-    return JsonResponse({'error': 'Method not allowed'}, status=405)
+
+    except Exception as e:
+        print("💥 ERROR during roster_view:", e)
+        return JsonResponse({'success': False, 'error': str(e)})
