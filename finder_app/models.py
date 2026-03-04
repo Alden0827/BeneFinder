@@ -19,6 +19,10 @@ class User(AbstractUser):
     def __str__(self):
         return self.username
 
+    class Meta:
+        managed = False
+        db_table = '"public"."tbl_users"'
+
 class Config(models.Model):
     particular = models.CharField(max_length=255, primary_key=True)
     value = models.CharField(max_length=255, blank=True, null=True)
